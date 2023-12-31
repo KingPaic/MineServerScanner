@@ -47,7 +47,7 @@ namespace WindowsFormsApp1
             //            textBox1.Text = "";
             numericUpDown1.Value = 40000;
             numericUpDown2.Value = 42000;
-            numericUpDown3.Value = 300;
+            numericUpDown3.Value = 1500;
 
             listView1.MouseDoubleClick += ListView1_MouseDoubleClick;
             // Handle the ColumnClick event to enable sorting.
@@ -217,6 +217,31 @@ namespace WindowsFormsApp1
 
 
         }
+        private void RemoveDuplicateItems()
+        {
+            HashSet<string> uniqueItems = new HashSet<string>();
+            List<ListViewItem> itemsToRemove = new List<ListViewItem>();
+
+            foreach (ListViewItem item in listView1.Items)
+            {
+                if (uniqueItems.Contains(item.Text))
+                {
+                    // This item is a duplicate, mark it for removal
+                    itemsToRemove.Add(item);
+                }
+                else
+                {
+                    // Add the item's text to the set of unique items
+                    uniqueItems.Add(item.Text);
+                }
+            }
+
+            // Remove the duplicate items from the ListView
+            foreach (ListViewItem itemToRemove in itemsToRemove)
+            {
+                listView1.Items.Remove(itemToRemove);
+            }
+        }
 
 
         private async void button3_Click(object sender, EventArgs e)
@@ -231,7 +256,7 @@ namespace WindowsFormsApp1
             listView1.Groups.Clear();
 
            await fip.ScanIPRangeAsync(textBox1.Text, progressBar1, listView1,500, (int)numericUpDown3.Value);
-
+            RemoveDuplicateItems();
             button4.Visible = listView1.Items.Count > 0;
            // CreateGroupsByIP();
         }
