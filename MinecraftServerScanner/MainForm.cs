@@ -12,53 +12,103 @@ using System.IO;
 
 namespace WindowsFormsApp1
 {
-  
+
 
 
     public partial class MainForm : Form
     {
         MinecraftServerScanner serverScanner = new MinecraftServerScanner();
+        FindIps fip = new FindIps();
+
+        // Get the current directory where the script is located
+        string scriptDirectory = AppDomain.CurrentDomain.BaseDirectory;
+
+        // Define the file path and file content
+        string filePath;
 
         public MainForm()
         {
             InitializeComponent();
+            filePath = Path.Combine(scriptDirectory, "lastread.txt");
 
+            //textBox1.Text= "54.39.158.149,51.178.176.74,51.91.62.101,146.59.252.149";
 
+            try
+            {
+                // Read the contents of the file
+                textBox1.Text = File.ReadAllText(filePath);
 
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error: " + ex.Message);
+            }
 
-
-            textBox1.Text= "54.39.158.149,51.178.176.74,51.91.62.101,146.59.252.149";
+            //            textBox1.Text = "";
             numericUpDown1.Value = 40000;
             numericUpDown2.Value = 42000;
             numericUpDown3.Value = 300;
-            //NetworkScanner ns = new NetworkScanner("51.178.176.74","51.178.176.100", 40799);
 
-            // Create two groups for the ListView
-            // ListViewGroup group1 = new ListViewGroup("Group 1", HorizontalAlignment.Left);
-            //ListViewGroup group2 = new ListViewGroup("Group 2", HorizontalAlignment.Left);
-
-            // Add the groups to the ListView
-            //listView1.Groups.Add(group1);
-            //listView1.Groups.Add(group2);
-
-            // Set the ListView to show groups
-            //listView1.ShowGroups = true;
-            // Attach the MouseDoubleClick event handler
             listView1.MouseDoubleClick += ListView1_MouseDoubleClick;
             // Handle the ColumnClick event to enable sorting.
-            listView1.ColumnClick += ListView1_ColumnClick;
-            // Create an instance of the custom ListViewItemSorter and assign it to the ListView.
-
-            //   listView1.ListViewItemSorter = new ListViewItemComparer(columnToSort, orderOfSort);
+            listView1.ColumnClick += ListView_ColumnClick;
 
             SetTransparencyForControls(this.Controls);
-            this.Opacity=1;
+            button4.Visible = false;
+            this.Opacity = 1;
 
 
 
 
 
         }
+
+        private void CreateGroupsByIP()
+        {
+            Dictionary<string, ListViewGroup> ipGroups = new Dictionary<string, ListViewGroup>();
+
+            foreach (ListViewItem item in listView1.Items)
+            {
+                string ipAddress = item.SubItems[0].Text;
+
+                if (!ipGroups.ContainsKey(ipAddress))
+                {
+                    // Create a new group for the IP address
+                    ListViewGroup group = new ListViewGroup(ipAddress, HorizontalAlignment.Left);
+                    listView1.Groups.Add(group);
+                    ipGroups[ipAddress] = group;
+                }
+
+                // Assign the item to its corresponding group
+                item.Group = ipGroups[ipAddress];
+            }
+        }
+
+
+        private void CreateGroupsByVersion()
+        {
+            Dictionary<string, ListViewGroup> ipGroups = new Dictionary<string, ListViewGroup>();
+
+            foreach (ListViewItem item in listView1.Items)
+            {
+                string ipAddress = item.SubItems[2].Text;
+
+                if (!ipGroups.ContainsKey(ipAddress))
+                {
+                    // Create a new group for the IP address
+                    ListViewGroup group = new ListViewGroup(ipAddress, HorizontalAlignment.Left);
+                    listView1.Groups.Add(group);
+                    ipGroups[ipAddress] = group;
+                }
+
+                // Assign the item to its corresponding group
+                item.Group = ipGroups[ipAddress];
+            }
+        }
+
+
+
+
 
         // Function to set transparency for controls recursively
         private void SetTransparencyForControls(Control.ControlCollection controls)
@@ -70,31 +120,37 @@ namespace WindowsFormsApp1
                     // Set the background color of the label to be transparent
                     label.BackColor = System.Drawing.Color.Transparent;
                 }
-               
+
             }
         }
 
 
-        private SortOrder orderOfSort;
-        private int columnToSort;
-        private void ListView1_ColumnClick(object sender, ColumnClickEventArgs e)
+
+        private void ListView_ColumnClick(object sender, ColumnClickEventArgs e)
         {
+            // Create an instance of the ListViewItemComparer class
+            ListViewItemComparer sorter = new ListViewItemComparer(e.Column);
 
-            // Determine whether the column is already the column that is being sorted.
-            if (e.Column == columnToSort)
-            {
-                // Reverse the current sort direction for this column.
-                orderOfSort = (orderOfSort == SortOrder.Ascending) ? SortOrder.Descending : SortOrder.Ascending;
-            }
-            else
-            {
-                // Set the column number that is to be sorted and default to ascending.
-                columnToSort = e.Column;
-                orderOfSort = SortOrder.Ascending;
-            }
-
-            // Perform the sort with these new sort options.
+            // Sort the ListView using the comparer
+            listView1.ListViewItemSorter = sorter;
             listView1.Sort();
+        }
+
+
+        // Custom ListViewItemComparer class for sorting
+        private class ListViewItemComparer : System.Collections.IComparer
+        {
+            private int column;
+
+            public ListViewItemComparer(int column)
+            {
+                this.column = column;
+            }
+
+            public int Compare(object x, object y)
+            {
+                return string.Compare(((ListViewItem)x).SubItems[column].Text, ((ListViewItem)y).SubItems[column].Text);
+            }
         }
 
 
@@ -106,8 +162,15 @@ namespace WindowsFormsApp1
                 // Get the selected item
                 ListViewItem selectedItem = listView1.SelectedItems[0];
 
-                // Get the text of the selected item
-                string selectedText = selectedItem.Text+":"+ selectedItem.SubItems[1].Text;
+                string selectedText;
+                if (selectedItem.SubItems[1].Text != "")
+                {
+                    // Get the text of the selected item
+                     selectedText = selectedItem.Text + ":" + selectedItem.SubItems[1].Text;
+                }
+                else {
+                     selectedText = selectedItem.Text;
+                }
 
                 // Copy the selected text to the clipboard
                 Clipboard.SetText(selectedText);
@@ -120,21 +183,81 @@ namespace WindowsFormsApp1
 
         private async void button1_Click(object sender, EventArgs e)
         {
-            if (serverScanner.running) {
+
+         
+            if (serverScanner.running || fip.running)
+            {
                 return;
             }
             listView1.Items.Clear();
+            listView1.Groups.Clear();
+
+            try
+            {
+                string fileContent = textBox1.Text;
+                // Write the file content to the specified file path
+                File.WriteAllText(filePath, fileContent);
+                Console.WriteLine("File saved successfully.");
+            }
+            catch
+            {
+
+            }
+
 
             string[] ipAddresses = textBox1.Text.Split(','); // Replace with your desired IP addresses
             int startPort = (int)numericUpDown1.Value;
             int endPort = (int)numericUpDown2.Value; // Adjust the port range as needed
 
-           
-            Dictionary<string, string> serverVersions = await serverScanner.ScanServersAsync(ipAddresses, startPort, endPort,progressBar1,listView1,(int)numericUpDown3.Value);
+
+            Dictionary<string, string> serverVersions2 = await serverScanner.ScanServersAsync(ipAddresses, startPort, endPort, progressBar1, listView1, (int)numericUpDown3.Value);
+
+            
+            CreateGroupsByVersion();
+
 
         }
 
-// Function to export ListView items to CSV
+
+        private async void button3_Click(object sender, EventArgs e)
+        {
+
+            if (serverScanner.running || fip.running)
+            {
+                return;
+            }
+
+            listView1.Items.Clear();
+            listView1.Groups.Clear();
+
+           await fip.ScanIPRangeAsync(textBox1.Text, progressBar1, listView1,500, (int)numericUpDown3.Value);
+
+            button4.Visible = listView1.Items.Count > 0;
+           // CreateGroupsByIP();
+        }
+
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            SaveFileDialog saveFileDialog = new SaveFileDialog();
+            saveFileDialog.Filter = "CSV Files (*.csv)|*.csv";
+            if (saveFileDialog.ShowDialog() == DialogResult.OK)
+            {
+                ExportListViewToCsv(listView1, saveFileDialog.FileName);
+            }
+        }
+
+        private void textBox1_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+
+
+
+
+
+        // Function to export ListView items to CSV
         private void ExportListViewToCsv(ListView listView, string filePath)
         {
             try
@@ -161,96 +284,14 @@ namespace WindowsFormsApp1
             }
         }
 
-        private void button2_Click(object sender, EventArgs e)
+        private void button4_Click(object sender, EventArgs e)
         {
-            SaveFileDialog saveFileDialog = new SaveFileDialog();
-            saveFileDialog.Filter = "CSV Files (*.csv)|*.csv";
-            if (saveFileDialog.ShowDialog() == DialogResult.OK)
+            textBox1.Text = "";
+            foreach (ListViewItem item in listView1.Items)
             {
-                ExportListViewToCsv(listView1, saveFileDialog.FileName);
+                textBox1.Text = textBox1.Text+ item.SubItems[0].Text+",";
             }
-        }
-    }
-
-    public class TransparentListView : ListView
-    {
-        private int alpha = 80; // Adjust the alpha value to control transparency
-
-        public TransparentListView()
-        {
-            this.DoubleBuffered = true;
-        }
-
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            using (Bitmap bmp = new Bitmap(this.Width, this.Height))
-            using (Graphics g = Graphics.FromImage(bmp))
-            {
-                // Draw the ListView background with reduced opacity
-                ControlPaint.DrawImageDisabled(g, this.BackgroundImage, 0, 0, Color.Transparent);
-
-                // Draw the ListView items and sub-items
-                base.OnPaint(new PaintEventArgs(g, e.ClipRectangle));
-
-                // Apply the alpha value to the entire control
-                Color transparentColor = Color.FromArgb(alpha, this.BackColor);
-                e.Graphics.DrawImage(bmp, 0, 0);
-                e.Graphics.FillRectangle(new SolidBrush(transparentColor), this.ClientRectangle);
+            textBox1.Text = textBox1.Text.Substring(0, textBox1.Text.Length - 1);
             }
-        }
-    }
-    public class ListViewItemComparer : System.Collections.IComparer
-    {
-        private int column;
-        private SortOrder sortOrder;
-
-        public ListViewItemComparer()
-        {
-            column = 0; // Default to sorting the first column
-            sortOrder = SortOrder.Ascending; // Default to ascending order
-        }
-
-        public ListViewItemComparer(int column, SortOrder order)
-        {
-            this.column = column;
-            this.sortOrder = order;
-        }
-
-        public int Compare(object x, object y)
-        {
-            ListViewItem itemX = (ListViewItem)x;
-            ListViewItem itemY = (ListViewItem)y;
-
-            // You should implement error checking here if the columns don't exist or have incorrect data
-
-            // Get the sub-item text to compare
-            string textX = itemX.SubItems[column].Text;
-            string textY = itemY.SubItems[column].Text;
-
-            // Perform a comparison based on the sort order
-            int compareResult = string.Compare(textX, textY);
-
-            // Invert the result for descending order
-            if (sortOrder == SortOrder.Descending)
-            {
-                compareResult = -compareResult;
-            }
-
-            return compareResult;
-        }
     }
 }
-
-
-/* 
-        string[] ipAddresses = { "51.178.176.74" }; // Replace with your desired IP addresses
-        int startPort = 40500;
-        int endPort = 41000; // Adjust the port range as needed
-
-        MinecraftServerScanner serverScanner = new MinecraftServerScanner();
-        Dictionary<string, string> serverVersions = await serverScanner.ScanServersAsync(ipAddresses, startPort, endPort);
-
-       /* foreach (var kvp in serverVersions)
-        {
-            Console.WriteLine($"Server {kvp.Key}: {kvp.Value}");
-        }*/

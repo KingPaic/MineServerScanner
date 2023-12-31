@@ -49,6 +49,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="FindIps.cs" />
     <Compile Include="MinecraftServerScanner.cs" />
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
